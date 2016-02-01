@@ -174,6 +174,132 @@ void setNuageSurImage(vector<vector<float> > nuage, TGAImage &image) {
 	image.write_tga_file("Nuage.tga");
 }
 
+bool isPointDansTriangle(int px, int py, int ax, int ay, int bx, int by, int cx, int cy){
+/*
+On calcule le produit matriciel suivant
+   ( (Bx - Ax) (Cx - Ax) (Ax - Px) ) (u)
+   ( (By - Ay) (Cy - Ay) (Ay - Py) ) (v)
+                                     (1)
+     (Bx - Ax)(u) + (Cx - Ax)(v) + (Ax - Px)(1) = 0
+     (By - Ay)(u) + (Cy - Ay)(v) + (Ay - Px)(1) = 0
+*/
+float** A =  new float*[2];
+for(int i = 0; i<2 ; ++i){
+    A[i] = new float[2];
+}
+
+// initialisation de base de A
+A[0][0] = bx - ax;
+A[0][1] = cx - ax;
+A[1][0] = by - ay;
+A[1][1] = cy - ay;
+
+float** B = new float*[2];
+for(int i = 0; i<2 ; ++i){
+    B[i] = new float[1];
+}
+B[0][0] = px - ax;
+B[1][0] = py - ay;
+
+
+/* On sait que (u) = (A-1 * B)
+               (v)
+  Et A-1 est l'inverse de A, calculons le
+*/
+
+float determinant = ((A[0][0]*A[1][1])-(A[0][1]*A[1][0]));
+float coeff = 1./determinant;
+//printf("determinant = %f",coeff);
+// A-1
+A[0][0] = coeff*(cy-ay);
+A[0][1] = coeff*(ax-cx);
+A[1][0] = coeff*(ay-by);
+A[1][1] = coeff*(bx-ax);
+/*
+float a00 = coeff*(cy-ay);
+float a01 = coeff*(ax-cx);
+float a10 = coeff*(ay-by);
+float a11 = coeff*(bx-ax);
+
+float u = a00*(px - ax) + a01*(py - ay);
+float v = a10*(px - ax)+ a11*(py - ay);*/
+
+float u = A[0][0]*B[0][0] + A[0][1]*B[1][0];
+float v = A[1][0]*B[0][0] + A[1][1]*B[1][0];
+
+//printf("U = %f\n",u);
+//printf("V = %f\n",v);
+//printf("1-U-V = %f\n",(1-u-v));
+float toto = 1-u-v;
+if(u<0 || v<0 || toto<0)return false;
+else return true;
+
+
+}
+
+
+void setRemplissageTriangleBarycentric(int x1, int y1, int x2, int y2, int x3, int y3,TGAImage &image){
+
+    int minX = min(x3,min(x1,x2));
+    int minY = min(y3,min(y1,y2));
+    int maxX = max(x3,max(x1,x2));
+    int maxY = max(y3,max(y1,y2));
+
+    for(int px = minX+1; px < maxX ; px++){
+       for(int py = minY+1;py < maxY; py++){
+           if(isPointDansTriangle(px,py,x1,y1,x2,y2,x3,y3)){
+              image.set(px,py,white);
+                }
+            }
+        }
+}
+
+void setRemplissageTriangleLineSweep(int x1, int y1, int x2, int y2, int x3, int y3,TGAImage &image){
+
+
+    // On trie les sommets par ordre croissant selon l'axe y
+    if(y1>y2){
+        swap(y1,y2);
+        swap(x1,x2);
+    }
+    if(y1>y3){
+        swap(y1,y3);
+        swap(x1,x3);
+    }
+    if(y2>y3){
+        swap(y2,y3);
+        swap(x2,x3);
+    }
+
+    //On coupe le triangle en deux sous-triangles : partie basse, partie haute
+    // Dessin de la partie basse (y entre y1 et y2)
+    int hauteur = y3 - y1;
+    for(int a = y1; a<y2 ; a++){
+        int semiHauteur = y2-y1+1;
+        float alpha = (float)(a-y1)/hauteur;
+        float beta = (float) (a-y1)/semiHauteur;
+        int ax = x1 + (x3-x1)*alpha;
+        int bx = x1 + (x2-x1)*beta;
+
+        if(ax>bx)swap(ax,bx);
+        for(int b = ax;b<bx;b++){
+            image.set(b,a,green);
+        }
+    }
+    for(int a = y2; a<y3 ; a++){
+        int semiHauteur = y3-y2+1;
+        float alpha = (float)(a-y1)/hauteur;
+        float beta = (float) (a-y2)/semiHauteur;
+        int ax = x1 + (x3-x1)*alpha;
+        int bx = x2 + (x3-x2)*beta;
+
+        if(ax>bx)swap(ax,bx);
+        for(int b = ax;b<bx;b++){
+            image.set(b,a,red);
+        }
+    }
+}
+
 void setTrianglesSurImage(vector<vector<float> > nuage, vector<vector<float> > triangles, TGAImage &image) {
     int a,b,c; // les 3 sommets stockés dans "triangles"
     int x1,y1,x2,y2,x3,y3;
@@ -192,14 +318,22 @@ void setTrianglesSurImage(vector<vector<float> > nuage, vector<vector<float> > t
         x3 = nuage[c][0]+image.get_width()/2;
         y3 = nuage[c][1]+image.get_height()/2;
 
-        line(x1,y1,x2,y2,image,red);
-        line(x2,y2,x3,y3,image,blue);
-        line(x1,y1,x3,y3,image,green);
+        line(x1,y1,x2,y2,image,white);
+        line(x2,y2,x3,y3,image,white);
+        line(x1,y1,x3,y3,image,white);
 
+        setRemplissageTriangleBarycentric(x1,y1,x2,y2,x3,y3,image);
+
+        //setRemplissageTriangleLineSweep(x1,y1,x2,y2,x3,y3, image);
 	}
 	image.flip_vertically();
 	image.write_tga_file("Triangles.tga");
 }
+
+
+
+
+
 
 int main(int argc, char** argv) {
 	TGAImage imageNuage(500, 500, TGAImage::RGB);
@@ -217,7 +351,30 @@ int main(int argc, char** argv) {
 	printf("Triangles");
     setTrianglesSurImage(nuage, triangles, imageTriangles);
 
-	return 0;
+    TGAImage imageTest(500, 500, TGAImage::RGB);
+
+    line(60,100,200,300,imageTest,red);
+    line(60,100,500,400,imageTest,red);
+    line(200,300,500,400,imageTest,red);
+
+
+    for(int px = 0; px < 500 ; px++){
+            for(int py = 0;py <500; py++){
+                if(isPointDansTriangle(px,py,60,100,200,300,500,400)){
+                    imageTest.set(px,py,white);
+                }
+            }
+        }
+    //printf("%s",isPointDansTriangle(250,250,60,100,200,300,500,400)?"true":"false");
+   // imageTest.set(250,250,white);
+    imageTest.flip_vertically();
+	imageTest.write_tga_file("Test.tga");
+
+
+
+
+    //while(0==0){}
+    return 0;
 }
 
 
