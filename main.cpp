@@ -300,7 +300,7 @@ void setNuageSurImage(vector<vector<float> > nuage, TGAImage &image) {
 	image.write_tga_file("Nuage.tga");
 }
 
-bool isPointDansTriangle(int px, int py, int ax, int ay, int az,int bx, int by, int bz,int cx, int cy,int cz, int buffer[][500]){
+bool isPointDansTriangle(int px, int py, int ax, int ay, int az,int bx, int by, int bz,int cx, int cy,int cz, int buffer[][500], TGAImage &texture, float xd, float yd, float xe, float ye, float xf, float yf,TGAColor &color){
 /*
 On calcule le produit matriciel suivant
    ( (Bx - Ax) (Cx - Ax) (Ax - Px) ) (u)
@@ -309,6 +309,7 @@ On calcule le produit matriciel suivant
      (Bx - Ax)(u) + (Cx - Ax)(v) + (Ax - Px)(1) = 0
      (By - Ay)(u) + (Cy - Ay)(v) + (Ay - Px)(1) = 0
 */
+float txtX, txtY;
 float** A =  new float*[2];
 for(int i = 0; i<2 ; ++i){
     A[i] = new float[2];
@@ -357,6 +358,11 @@ float v = A[1][0]*B[0][0] + A[1][1]*B[1][0];
 //printf("V = %f\n",v);
 //printf("1-U-V = %f\n",(1-u-v));
 float toto = 1-u-v;
+txtX = (xd*u + xe*v + xf*toto)*1024;
+txtY = (yd*u + ye*v + yf*toto)*1024;
+color = texture.get(txtX,txtY);
+
+
 
 //On prend en compte la profondeur pour ne pas tout dessiner
 if(u>=-1e-5 && v>=-1e-5 && toto>=-1e-5){ //on utilise un facteur d'approximation car des fois meme si c'est <0 on doit le prendre
@@ -370,23 +376,29 @@ else return false;
 }
 
 
-void setRemplissageTriangleBarycentric(int x1, int y1, int z1, int x2, int y2, int z2,int x3, int y3,int z3,TGAImage &image, int buffer[][500], TGAColor colorD,TGAColor colorE,TGAColor colorF ){
+void setRemplissageTriangleBarycentric(int x1, int y1, int z1, int x2, int y2, int z2,int x3, int y3,int z3,TGAImage &image, int buffer[][500], TGAImage &texture, float xd, float yd, float xe, float ye, float xf, float yf ){
 
     int minX = min(x3,min(x1,x2));
     int minY = min(y3,min(y1,y2));
     int maxX = max(x3,max(x1,x2));
     int maxY = max(y3,max(y1,y2));
 
-    image.set(x1,y1,colorD);
-    image.set(x2,y2,colorE);
-    image.set(x3,y3,colorF);
+    //float txtX = (xd*x1 + xe*x2 + xf*x3)*1024;
+    //float txtY = (yd*y1 + ye*y2 + yf*y3)*1024;
+
+
+
+
+   // image.set(x1,y1,colorD);
+    //image.set(x2,y2,colorE);
+    //image.set(x3,y3,colorF);
 
     TGAColor rndcolor = TGAColor(rand()%255, rand()%255, 255, 255);
     for(int px = minX ; px < maxX ; px++){
        for(int py = minY ; py < maxY ; py++){
-           if(isPointDansTriangle(px,py,x1,y1,z1,x2,y2,z2,x3,y3,z3,buffer)){
+           if(isPointDansTriangle(px,py,x1,y1,z1,x2,y2,z2,x3,y3,z3,buffer,texture,xd,yd,xe,ye,xf,yf,rndcolor)){
 
-             image.set(px,py,colorE);
+             image.set(px,py,rndcolor);
 
             }
         }
@@ -453,6 +465,7 @@ void setTrianglesSurImage(vector<vector<float> > nuage, vector<vector<float> > t
     }
 
 	for (unsigned int i = 0; i < triangles.size(); ++i) {
+        printf("\n%i",i);
         a = triangles[i][0]-1; //on enleve 1 pour atteindre la bonne ligne dans le vector de points
         b = triangles[i][1]-1;
         c = triangles[i][2]-1;
@@ -463,12 +476,12 @@ void setTrianglesSurImage(vector<vector<float> > nuage, vector<vector<float> > t
 
 
 
-        xd = textures[d][0]*TAILLEIMAGE;
-        yd = textures[d][1]*TAILLEIMAGE;
-        xe = textures[e][0]*TAILLEIMAGE;
-        ye = textures[e][1]*TAILLEIMAGE;
-        xf = textures[f][0]*TAILLEIMAGE;
-        yf = textures[f][1]*TAILLEIMAGE;
+        xd = textures[d][0]/*TAILLEIMAGE*/;
+        yd = textures[d][1];
+        xe = textures[e][0];
+        ye = textures[e][1];
+        xf = textures[f][0];
+        yf = textures[f][1];
 
         /*printf("\nXD= %f ",xd);
         printf("YD= %f ",yd);
@@ -478,9 +491,9 @@ void setTrianglesSurImage(vector<vector<float> > nuage, vector<vector<float> > t
         printf("YF= %f ",yf);
         printf("\n");*/
 
-        TGAColor colorD = texture.get(xd,yd);
+        /*TGAColor colorD = texture.get(xd,yd);
         TGAColor colorE = texture.get(xe,ye);
-        TGAColor colorF = texture.get(xf,yf);
+        TGAColor colorF = texture.get(xf,yf);*/
 
         x1 = nuage[a][0]+image.get_width()/2. + .5 ;
         y1 = nuage[a][1]+image.get_height()/2. + .5 ;
@@ -501,7 +514,7 @@ void setTrianglesSurImage(vector<vector<float> > nuage, vector<vector<float> > t
        // line(x2,y2,x3,y3,image,white);
        // line(x1,y1,x3,y3,image,white);
 
-        setRemplissageTriangleBarycentric(x1,y1,z1,x2,y2,z2,x3,y3,z3,image,buffer,colorD, colorE, colorF);
+        setRemplissageTriangleBarycentric(x1,y1,z1,x2,y2,z2,x3,y3,z3,image,buffer,texture,xd, yd, xe, ye, xf, yf);
 
         //setRemplissageTriangleLineSweep(x1,y1,x2,y2,x3,y3, image);
 	}
@@ -520,6 +533,7 @@ int main(int argc, char** argv) {
 	TGAImage imageTriangles(500, 500, TGAImage::RGB);
 	TGAImage texture(500,500,TGAImage::RGB);
     texture.read_tga_file("african_head_diffuse.tga");
+    texture.flip_vertically();
 
 
 	ifstream fin;
