@@ -358,8 +358,8 @@ float v = A[1][0]*B[0][0] + A[1][1]*B[1][0];
 //printf("V = %f\n",v);
 //printf("1-U-V = %f\n",(1-u-v));
 float toto = 1-u-v;
-txtX = (xd*u + xe*v + xf*toto)*1024;
-txtY = (yd*u + ye*v + yf*toto)*1024;
+txtX = (xd*toto + xe*u + xf*v)*1024;
+txtY = (yd*toto + ye*u + yf*v)*1024;
 color = texture.get(txtX,txtY);
 
 
