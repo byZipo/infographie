@@ -90,9 +90,9 @@ vector<vector<float> > parsePoints(ifstream &fin, TGAImage &image){
     y = atof(entier2.c_str());
     z = atof(entier3.c_str());
 
-    points.push_back(x);
-    points.push_back(y);
-    points.push_back(z);
+    points.push_back(x*image.get_width()/2.+image.get_height()/2.+.5);
+    points.push_back(y*image.get_width()/2.+image.get_height()/2.+.5);
+    points.push_back(z*image.get_width()/2.+image.get_height()/2.+.5);
     nuage.push_back(points);
     points.clear();
 
@@ -309,7 +309,7 @@ On calcule le produit matriciel suivant
      (Bx - Ax)(u) + (Cx - Ax)(v) + (Ax - Px)(1) = 0
      (By - Ay)(u) + (Cy - Ay)(v) + (Ay - Px)(1) = 0
 */
-float txtX, txtY;
+float txtX, txtY; //les coordonnées des points dans le fichier texture, calculés par la suite
 float** A =  new float*[2];
 for(int i = 0; i<2 ; ++i){
     A[i] = new float[2];
@@ -336,18 +336,13 @@ B[1][0] = py - ay;
 
 float determinant = ((A[0][0]*A[1][1])-(A[0][1]*A[1][0]));
 float coeff = 1./determinant;
-//printf("determinant = %f",coeff);
+
 // A-1
 A[0][0] = coeff*(cy-ay);
 A[0][1] = coeff*(ax-cx);
 A[1][0] = coeff*(ay-by);
 A[1][1] = coeff*(bx-ax);
 /*
-float a00 = coeff*(cy-ay);
-float a01 = coeff*(ax-cx);
-float a10 = coeff*(ay-by);
-float a11 = coeff*(bx-ax);
-
 float u = a00*(px - ax) + a01*(py - ay);
 float v = a10*(px - ax)+ a11*(py - ay);*/
 
@@ -357,16 +352,14 @@ float v = A[1][0]*B[0][0] + A[1][1]*B[1][0];
 //printf("U = %f\n",u);
 //printf("V = %f\n",v);
 //printf("1-U-V = %f\n",(1-u-v));
-float toto = 1-u-v;
-txtX = (xd*toto + xe*u + xf*v)*1024;
-txtY = (yd*toto + ye*u + yf*v)*1024;
+float w = 1-u-v;
+txtX = (xd*w + xe*u + xf*v)*1024;
+txtY = (yd*w + ye*u + yf*v)*1024;
 color = texture.get(txtX,txtY);
 
-
-
 //On prend en compte la profondeur pour ne pas tout dessiner
-if(u>=-1e-5 && v>=-1e-5 && toto>=-1e-5){ //on utilise un facteur d'approximation car des fois meme si c'est <0 on doit le prendre
-    float pz = (u*az) + (v*bz) + (toto*cz);
+if(u>=-1e-5 && v>=-1e-5 && w>=-1e-5){ //on utilise un facteur d'approximation car des fois meme si c'est <0 on doit le prendre
+    float pz = (u*az) + (v*bz) + (w*cz);
     if(buffer[px][py]>pz)return false;
     else buffer[px][py]=pz;
     return true;
@@ -383,31 +376,47 @@ void setRemplissageTriangleBarycentric(int x1, int y1, int z1, int x2, int y2, i
     int maxX = max(x3,max(x1,x2));
     int maxY = max(y3,max(y1,y2));
 
-    //float txtX = (xd*x1 + xe*x2 + xf*x3)*1024;
-    //float txtY = (yd*y1 + ye*y2 + yf*y3)*1024;
+
+    //AB
+    int x12 = x2 - x1;
+    int y12 = y2 - y1;
+    int z12 = z2 - z1;
+
+    //AC
+    int x13 = x3 - x1;
+    int y13 = y3 - y1;
+    int z13 = z3 - z1;
+
+    // normalisation
+    float normeX = y12*z13 - z12*y13;
+    float normeY = z12*x13 - x12*z13;
+    float normeZ = x12*y13 - y12*x13;
 
 
+    float distance =  sqrt(normeX*normeX + normeY*normeY + normeZ*normeZ);
+    normeX /= distance;
+    normeY /= distance;
+    normeZ /= distance;
 
+    //définition du vecteur lumière
+    int lightX = 0;
+    int lightY = 0;
+    int lightZ = 1;
 
-   // image.set(x1,y1,colorD);
-    //image.set(x2,y2,colorE);
-    //image.set(x3,y3,colorF);
+    float intensity = abs(normeX*lightX + normeY*lightY + normeZ*lightZ);
 
-    TGAColor rndcolor = TGAColor(rand()%255, rand()%255, 255, 255);
+    TGAColor color = TGAColor(rand()%255, rand()%255, 255, 255); //initialisation d'une couleur, qui va être modifiée par la méthode isPointDansTriangle()
     for(int px = minX ; px < maxX ; px++){
        for(int py = minY ; py < maxY ; py++){
-           if(isPointDansTriangle(px,py,x1,y1,z1,x2,y2,z2,x3,y3,z3,buffer,texture,xd,yd,xe,ye,xf,yf,rndcolor)){
-
-             image.set(px,py,rndcolor);
-
+           if(isPointDansTriangle(px,py,x1,y1,z1,x2,y2,z2,x3,y3,z3,buffer,texture,xd,yd,xe,ye,xf,yf,color)){
+             color = TGAColor(color.r*intensity,color.g*intensity,color.b*intensity,color.a*intensity);
+             image.set(px,py,color);
             }
         }
     }
 }
 
 void setRemplissageTriangleLineSweep(int x1, int y1, int x2, int y2, int x3, int y3,TGAImage &image){
-
-
     // On trie les sommets par ordre croissant selon l'axe y
     if(y1>y2){
         swap(y1,y2);
@@ -465,18 +474,16 @@ void setTrianglesSurImage(vector<vector<float> > nuage, vector<vector<float> > t
     }
 
 	for (unsigned int i = 0; i < triangles.size(); ++i) {
-        printf("\n%i",i);
+        //printf("\n%i",i);
         a = triangles[i][0]-1; //on enleve 1 pour atteindre la bonne ligne dans le vector de points
         b = triangles[i][1]-1;
         c = triangles[i][2]-1;
-
+        //données pour le calcul des textures
         d = trianglesTextures[i][0]-1;
         e = trianglesTextures[i][1]-1;
         f = trianglesTextures[i][2]-1;
 
-
-
-        xd = textures[d][0]/*TAILLEIMAGE*/;
+        xd = textures[d][0];
         yd = textures[d][1];
         xe = textures[e][0];
         ye = textures[e][1];
@@ -491,41 +498,27 @@ void setTrianglesSurImage(vector<vector<float> > nuage, vector<vector<float> > t
         printf("YF= %f ",yf);
         printf("\n");*/
 
-        /*TGAColor colorD = texture.get(xd,yd);
-        TGAColor colorE = texture.get(xe,ye);
-        TGAColor colorF = texture.get(xf,yf);*/
+        x1 = nuage[a][0]/*image.get_width()/2.+image.get_width()/2. + .5 */;
+        y1 = nuage[a][1]/*image.get_width()/2.+image.get_height()/2. + .5 */;
+        z1 = nuage[a][2]/*image.get_width()/2.+image.get_height()/2.+.5*/;
 
-        x1 = nuage[a][0]+image.get_width()/2. + .5 ;
-        y1 = nuage[a][1]+image.get_height()/2. + .5 ;
-        z1 = nuage[a][2]+image.get_height()/2.+.5;
+        x2 = nuage[b][0]/*image.get_width()/2.+image.get_width()/2. + .5 */;
+        y2 = nuage[b][1]/*image.get_width()/2.+image.get_height()/2. + .5 */;
+        z2 = nuage[b][2]/*image.get_width()/2.+image.get_height()/2.+.5*/;
 
-
-        x2 = nuage[b][0]+image.get_width()/2. + .5 ;
-        y2 = nuage[b][1]+image.get_height()/2. + .5 ;
-        z2 = nuage[b][2]+image.get_height()/2.+.5;
-
-
-        x3 = nuage[c][0]+image.get_width()/2. + .5 ;
-        y3 = nuage[c][1]+image.get_height()/2. + .5 ;
-        z3 = nuage[c][2]+image.get_height()/2.+.5;
-
+        x3 = nuage[c][0]/*image.get_width()/2.+image.get_width()/2. + .5 */;
+        y3 = nuage[c][1]/*image.get_width()/2.+image.get_height()/2. + .5 */;
+        z3 = nuage[c][2]/*image.get_width()/2.+image.get_height()/2.+.5*/;
 
         //line(x1,y1,x2,y2,image,white);
        // line(x2,y2,x3,y3,image,white);
        // line(x1,y1,x3,y3,image,white);
-
         setRemplissageTriangleBarycentric(x1,y1,z1,x2,y2,z2,x3,y3,z3,image,buffer,texture,xd, yd, xe, ye, xf, yf);
-
         //setRemplissageTriangleLineSweep(x1,y1,x2,y2,x3,y3, image);
 	}
-
 	image.flip_vertically();
 	image.write_tga_file("Triangles.tga");
 }
-
-
-
-
 
 
 int main(int argc, char** argv) {
@@ -538,28 +531,35 @@ int main(int argc, char** argv) {
 
 	ifstream fin;
 	fin.open("african_head.obj");
+	printf("Recuperation Points\n");
 	vector<vector<float> > nuage = parsePoints(fin, imageNuage);
 
-	printf("Nuage de points");
+	printf("Dessin du nuage de points dans le fichier Nuage.tga");
 	setNuageSurImage(nuage, imageNuage);
+
+
+    ifstream fin2;
+    fin2.open("african_head.obj");
+    printf("Recuperation Triangles (f A/x/x B/x/x C/x/x )\n");
+	vector<vector<float> > triangles = parseTriangles(fin2, imageTriangles);
+
 
     ifstream fin3;
     fin3.open("african_head.obj");
+    printf("Recuperation Triangles textures (f x/D/x x/E/x x/F/x)\n");
     vector<vector<float> > trianglesTextures = parseTrianglesTextures(fin3, imageTriangles);
 
     ifstream fin4;
     fin4.open("african_head.obj");
+    printf("Recuperation Textures\n");
     vector<vector<float> > textures = parseTextures(fin4, imageTriangles);
 
-	ifstream fin2;
-    fin2.open("african_head.obj");
-	vector<vector<float> > triangles = parseTriangles(fin2, imageTriangles);
-    printf("Triangles");
+
+
+    printf("Dessin de l'image finale dans le fichier Triangles.tga");
     setTrianglesSurImage(nuage, triangles, imageTriangles, trianglesTextures, textures, texture);
 
-
-
-    TGAImage imageTest(500, 500, TGAImage::RGB);
+    /*TGAImage imageTest(500, 500, TGAImage::RGB);
 
     line(60,100,200,300,imageTest,red);
     line(60,100,500,400,imageTest,red);
@@ -571,17 +571,17 @@ int main(int argc, char** argv) {
      imageTest.set(53,53,color);
      imageTest.set(54,54,color);
      imageTest.set(55,55,color);
-    /*for(int px = 0; px < 500 ; px++){
+    for(int px = 0; px < 500 ; px++){
             for(int py = 0;py <500; py++){
                 if(isPointDansTriangle(px,py,60,100,0,200,300,0,500,400,0,)){
                     imageTest.set(px,py,white);
                 }
             }
-        }*/
+        }
     //printf("%s",isPointDansTriangle(250,250,60,100,200,300,500,400)?"true":"false");
    // imageTest.set(250,250,white);
     imageTest.flip_vertically();
-	imageTest.write_tga_file("Test.tga");
+	imageTest.write_tga_file("Test.tga");*/
     //while(0==0){}
     return 0;
 }
