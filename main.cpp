@@ -1,4 +1,6 @@
 #include "tgaimage.h"
+#include "Matrix.h"
+
 #include <cmath>
 #include <iostream>
 #include <string>
@@ -6,6 +8,8 @@
 #include <vector>
 #include <cstdlib>
 #include <limits>
+
+
 using namespace std;
 using std::ifstream;
 
@@ -90,9 +94,9 @@ vector<vector<float> > parsePoints(ifstream &fin, TGAImage &image){
     y = atof(entier2.c_str());
     z = atof(entier3.c_str());
 
-    points.push_back(x*image.get_width()/2.+image.get_height()/2.+.5);
-    points.push_back(y*image.get_width()/2.+image.get_height()/2.+.5);
-    points.push_back(z*image.get_width()/2.+image.get_height()/2.+.5);
+    points.push_back(x);
+    points.push_back(y);
+    points.push_back(z);
     nuage.push_back(points);
     points.clear();
 
@@ -472,7 +476,10 @@ void setTrianglesSurImage(vector<vector<float> > nuage, vector<vector<float> > t
             buffer[i][j] = numeric_limits<int>::min();
         }
     }
-
+    Matrix m1(4,1);
+    Matrix m2(4,1);
+    Matrix m3(4,1);
+    Matrix pivot(4,4);
 	for (unsigned int i = 0; i < triangles.size(); ++i) {
         //printf("\n%i",i);
         a = triangles[i][0]-1; //on enleve 1 pour atteindre la bonne ligne dans le vector de points
@@ -498,17 +505,69 @@ void setTrianglesSurImage(vector<vector<float> > nuage, vector<vector<float> > t
         printf("YF= %f ",yf);
         printf("\n");*/
 
-        x1 = nuage[a][0]/*image.get_width()/2.+image.get_width()/2. + .5 */;
-        y1 = nuage[a][1]/*image.get_width()/2.+image.get_height()/2. + .5 */;
-        z1 = nuage[a][2]/*image.get_width()/2.+image.get_height()/2.+.5*/;
+        m1[0][0] = nuage[a][0];
+        m1[1][0] = nuage[a][1];
+        m1[2][0] = nuage[a][2];
+        m1[3][0] = 1;
 
-        x2 = nuage[b][0]/*image.get_width()/2.+image.get_width()/2. + .5 */;
-        y2 = nuage[b][1]/*image.get_width()/2.+image.get_height()/2. + .5 */;
-        z2 = nuage[b][2]/*image.get_width()/2.+image.get_height()/2.+.5*/;
+        m2[0][0] = nuage[b][0];
+        m2[1][0] = nuage[b][1];
+        m2[2][0] = nuage[b][2];
+        m2[3][0] = 1;
 
-        x3 = nuage[c][0]/*image.get_width()/2.+image.get_width()/2. + .5 */;
-        y3 = nuage[c][1]/*image.get_width()/2.+image.get_height()/2. + .5 */;
-        z3 = nuage[c][2]/*image.get_width()/2.+image.get_height()/2.+.5*/;
+        m3[0][0] = nuage[c][0];
+        m3[1][0] = nuage[c][1];
+        m3[2][0] = nuage[c][2];
+        m3[3][0] = 1;
+
+        pivot[0][0] = 250;
+        pivot[0][1] = 0;
+        pivot[0][2] = 0;
+        pivot[0][3] = 250;
+
+        pivot[1][0] = 0;
+        pivot[1][1] = 250;
+        pivot[1][2] = 0;
+        pivot[1][3] = 250;
+
+        pivot[2][0] = 0;
+        pivot[2][1] = 0;
+        pivot[2][2] = 250;
+        pivot[2][3] = 250;
+
+        pivot[3][0] = 0;
+        pivot[3][1] = 0;
+        pivot[3][2] = 0;
+        pivot[3][3] = 1;
+
+        m1 = pivot*m1;
+        m2 = pivot*m2;
+        m3 = pivot*m3;
+
+        x1 = m1[0][0]+ .5;
+        x2 = m2[0][0]+ .5;
+        x3 = m3[0][0]+ .5;
+
+        y1 = m1[1][0]+ .5;
+        y2 = m2[1][0]+ .5;
+        y3 = m3[1][0]+ .5;
+
+        z1 = m1[2][0]+ .5;
+        z2 = m2[2][0]+ .5;
+        z3 = m3[2][0]+ .5;
+       // printf("%i\n",x1);
+
+        //x1 = nuage[a][0]*image.get_width()/2.+image.get_width()/2. + .5 ;
+        //y1 = nuage[a][1]*image.get_width()/2.+image.get_height()/2. + .5 ;
+         // z1 = nuage[a][2]*image.get_width()/2.+image.get_height()/2.+.5;
+
+       // x2 = nuage[b][0]*image.get_width()/2.+image.get_width()/2. + .5 ;
+        //  y2 = nuage[b][1]*image.get_width()/2.+image.get_height()/2. + .5;
+        //  z2 = nuage[b][2]*image.get_width()/2.+image.get_height()/2.+.5;
+
+       // x3 = nuage[c][0]*image.get_width()/2.+image.get_width()/2. + .5 ;
+        //  y3 = nuage[c][1]*image.get_width()/2.+image.get_height()/2. + .5 ;
+       //   z3 = nuage[c][2]*image.get_width()/2.+image.get_height()/2.+.5;
 
         //line(x1,y1,x2,y2,image,white);
        // line(x2,y2,x3,y3,image,white);
@@ -559,6 +618,15 @@ int main(int argc, char** argv) {
     printf("Dessin de l'image finale dans le fichier Triangles.tga");
     setTrianglesSurImage(nuage, triangles, imageTriangles, trianglesTextures, textures, texture);
 
+    Matrix  m = Matrix(4,4);
+    m = m.identity(4);
+    printf("\n");
+    cout << m << endl;
+
+    printf("\n");
+    m[2][2] = cos(1);
+
+    cout << m << endl;
     /*TGAImage imageTest(500, 500, TGAImage::RGB);
 
     line(60,100,200,300,imageTest,red);
