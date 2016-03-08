@@ -11,7 +11,7 @@
 
 #define TAILLEIMAGE 500
 #define PI 3.14159265359
-#define angle 45
+#define angle 90
 
 using namespace std;
 using std::ifstream;
@@ -290,6 +290,63 @@ vector<vector<float> > parseTrianglesTextures(ifstream &fin, TGAImage &image){
 }
 
 
+vector<vector<float> >parseLissage(ifstream &fin){
+    vector<vector<float> >nuage;
+    vector<float> points;
+    std::string ligne;
+    string entier1,entier2,entier3;
+    float x,y,z;
+     while(getline(fin,ligne,'\n')){
+        entier1="";
+        entier2="";
+        entier3="";
+        // pour chaque ligne qui commence par f
+        if (ligne[0] == 'f' && ligne[1] == ' '){
+            int i = 2;
+
+            // récupération des trois derniers entiers de chaque triplet (x/x/entier1 x/x/entier2 x/x/entier3)
+            while(ligne[i]!= '/')i++;
+            i++;
+            while(ligne[i]!='/')i++;
+            i++;
+            while(ligne[i]!= ' '){
+                entier1 += ligne[i];
+                i++;
+            }
+            i++;
+            while(ligne[i]!= '/')i++;
+            i++;
+            while(ligne[i]!='/')i++;
+            i++;
+            while(ligne[i]!= ' '){
+                entier2 += ligne[i];
+                i++;
+            }
+            while(ligne[i]!= '/')i++;
+            i++;
+            while(ligne[i]!='/')i++;
+            i++;
+            while(ligne[i]!= ' '){
+                entier3 += ligne[i];
+                if(!((int)ligne.size()-1==i)){
+                    i++;
+                }else break;
+            }
+            // conversion de ces entiers en float
+            x = atof(entier1.c_str());
+            y = atof(entier2.c_str());
+            z = atof(entier3.c_str());
+
+            points.push_back(x);
+            points.push_back(y);
+            points.push_back(z);
+            nuage.push_back(points);
+            points.clear();
+        }
+     }
+     return nuage;
+}
+
 void setNuageSurImage(vector<vector<float> > nuage, TGAImage &image) {
     /* on ne se préoccupe pas de z, on dessine en 2D */
     float x,y;
@@ -368,10 +425,13 @@ else return false;
 void setRemplissageTriangleBarycentric(int x1, int y1, int z1, int x2, int y2, int z2,int x3, int y3,int z3,TGAImage &image, int buffer[][500], TGAImage &texture, float xd, float yd, float xe, float ye, float xf, float yf ){
 
     int minX = min(x3,min(x1,x2));
+    minX = max(minX,0); // pour regler le probleme lorsque l'on fait des modifications de perspective, vuq eu le triangle change de taille
     int minY = min(y3,min(y1,y2));
+    minY = max(minY,0);
     int maxX = max(x3,max(x1,x2));
+    maxX = min(maxX,TAILLEIMAGE);
     int maxY = max(y3,max(y1,y2));
-
+    maxY = min(maxY,TAILLEIMAGE);
     //AB
     int x12 = x2 - x1;
     int y12 = y2 - y1;
@@ -442,7 +502,11 @@ void setTrianglesSurImage(vector<vector<float> > nuage, vector<vector<float> > t
     transformation[2][2] = cos(alpha);
     transformation[3][3] = 1;
 
-    pivot = pivot*transformation;
+    Matrix perspective(4,4);
+    perspective = perspective.identity(4);
+    perspective[3][2] = -1./0.9;
+
+    pivot = pivot*perspective*transformation;
 
 	for (unsigned int i = 0; i < triangles.size(); ++i) {
         //printf("\n%i",i);
@@ -478,17 +542,17 @@ void setTrianglesSurImage(vector<vector<float> > nuage, vector<vector<float> > t
         m2 = pivot*m2;
         m3 = pivot*m3;
 
-        x1 = m1[0][0]+ .5;
-        x2 = m2[0][0]+ .5;
-        x3 = m3[0][0]+ .5;
+        x1 = m1[0][0]/m1[3][0]+ .5;
+        x2 = m2[0][0]/m2[3][0]+ .5;
+        x3 = m3[0][0]/m3[3][0]+ .5;
 
-        y1 = m1[1][0]+ .5;
-        y2 = m2[1][0]+ .5;
-        y3 = m3[1][0]+ .5;
+        y1 = m1[1][0]/m1[3][0]+ .5;
+        y2 = m2[1][0]/m2[3][0]+ .5;
+        y3 = m3[1][0]/m3[3][0]+ .5;
 
-        z1 = m1[2][0]+ .5;
-        z2 = m2[2][0]+ .5;
-        z3 = m3[2][0]+ .5;
+        z1 = m1[2][0]/m1[3][0]+ .5;
+        z2 = m2[2][0]/m2[3][0]+ .5;
+        z3 = m3[2][0]/m3[3][0]+ .5;
 
         setRemplissageTriangleBarycentric(x1,y1,z1,x2,y2,z2,x3,y3,z3,image,buffer,texture,xd, yd, xe, ye, xf, yf);
 	}
@@ -527,10 +591,15 @@ int main(int argc, char** argv) {
     printf("Recuperation Textures\n");
     vector<vector<float> > textures = parseTextures(fin4, imageTriangles);
 
+    ifstream fin5;
+    fin5.open("african_head.obj");
+    printf("Recuperation Lissage");
+    vector<vector<float> > lissage = parseLissage(fin5);
+
     printf("Dessin de l'image finale dans le fichier Triangles.tga");
     setTrianglesSurImage(nuage, triangles, imageTriangles, trianglesTextures, textures, texture);
 
-    //while(0==0){}
+    while(0==0){}
     return 0;
 }
 
