@@ -18,6 +18,8 @@ using namespace std;
 using std::ifstream;
 
 TGAImage nm;
+TGAImage specImg;
+float spec = 0.;
 
 const TGAColor red   = TGAColor(255, 0,   0,   255);
 const TGAColor white   = TGAColor(250, 250,  250,   255);
@@ -421,7 +423,7 @@ void setNuageSurImage(vector<vector<float> > nuage, TGAImage &image) {
 	image.write_tga_file("Nuage.tga");
 }
 
-bool isPointDansTriangle(int px, int py, float ax, float ay, float az,float bx, float by, float bz,float cx, float cy,float cz, int buffer[][500], TGAImage &texture, float xd, float yd, float xe, float ye, float xf, float yf,TGAColor &color, float &normeX, float &normeY, float &normeZ, float xg, float yg, float zg, float xh, float yh, float zh, float xi, float yi, float zi){
+bool isPointDansTriangle(int px, int py, float ax, float ay, float az,float bx, float by, float bz,float cx, float cy,float cz, int buffer[][500], TGAImage &texture, float xd, float yd, float xe, float ye, float xf, float yf,TGAColor &color, float &normeX, float &normeY, float &normeZ, float xg, float yg, float zg, float xh, float yh, float zh, float xi, float yi, float zi,float &lightX, float &lightY, float &lightZ){
 /* On calcule le produit matriciel suivant
    ( (Bx - Ax) (Cx - Ax) (Ax - Px) ) (u)
    ( (By - Ay) (Cy - Ay) (Ay - Py) ) (v)
@@ -467,8 +469,8 @@ float u = A[0][0]*B[0][0] + A[0][1]*B[1][0];
 float v = A[1][0]*B[0][0] + A[1][1]*B[1][0];
 float w = 1-u-v;
 
-txtX = (xd*w + xe*u + xf*v)*1024;
-txtY = (yd*w + ye*u + yf*v)*1024;
+txtX = (xd*w + xe*u + xf*v)*texture.get_width();
+txtY = (yd*w + ye*u + yf*v)*texture.get_height();
 
 color = texture.get(txtX,txtY);
 //color =  TGAColor(rand()%255, rand()%255, 255, 255);
@@ -483,6 +485,35 @@ if(u>=-1e-5 && v>=-1e-5 && w>=-1e-5){ //on utilise un facteur d'approximation ca
         normeX = rgb.r;
         normeY = rgb.g;
         normeZ = rgb.b;
+
+        float distance =  sqrt(normeX*normeX + normeY*normeY + normeZ*normeZ);
+        normeX /= distance;
+        normeY /= distance;
+        normeZ /= distance;
+
+        float cpyNormeX = normeX;
+        float cpyNormeY = normeY;
+        float cpyNormeZ = normeZ;
+
+        float scalNormeLight = lightX*cpyNormeX + lightY*cpyNormeY + lightZ*cpyNormeZ;
+        scalNormeLight *= 2;
+        cpyNormeX *= scalNormeLight;
+        cpyNormeY *= scalNormeLight;
+        cpyNormeZ *= scalNormeLight;
+
+        float rX = cpyNormeX - lightX;
+        float rY = cpyNormeY - lightY;
+        float rZ = cpyNormeZ - lightZ;
+
+        float norme = sqrt(rX*rX + rY*rY + rZ*rZ);
+        rX /= norme;
+        rY /= norme;
+        rZ /= norme;
+
+        TGAColor col = specImg.get(txtX,txtY);
+        spec = pow(fmax(0,rZ), col.b);
+
+
        // normeX = xg*w + xh*u + xi*v;
        // normeY = yg*w + yh*u + yi*v;
        // normeZ = zg*w + zh*u + zi*v;
@@ -493,7 +524,7 @@ else return false;
 }
 
 
-void setRemplissageTriangleBarycentric(float x1, float y1, float z1, float x2, float y2, float z2,float x3, float y3,float z3,TGAImage &image, int buffer[][500], TGAImage &texture, float xd, float yd, float xe, float ye, float xf, float yf, float xg, float yg, float zg, float xh, float yh, float zh, float xi, float yi, float zi ){
+void setRemplissageTriangleBarycentric(float x1, float y1, float z1, float x2, float y2, float z2,float x3, float y3,float z3,TGAImage &image, int buffer[][500], TGAImage &texture, float xd, float yd, float xe, float ye, float xf, float yf, float xg, float yg, float zg, float xh, float yh, float zh, float xi, float yi, float zi){
 
     float minX = min(x3,min(x1,x2));
     minX = fmax(minX,0.); // pour regler le probleme lorsque l'on fait des modifications de perspective, vuq eu le triangle change de taille
@@ -510,7 +541,7 @@ void setRemplissageTriangleBarycentric(float x1, float y1, float z1, float x2, f
     float normeZ = 0.;//x12*y13 - y12*x13;
 
     //définition du vecteur lumière
-    float lightX = 1;
+    float lightX = 01;
     float lightY = 1;
     float lightZ = 0;
 
@@ -522,14 +553,11 @@ void setRemplissageTriangleBarycentric(float x1, float y1, float z1, float x2, f
     TGAColor color = TGAColor(rand()%255, rand()%255, 255, 255); //initialisation d'une couleur, qui va être modifiée par la méthode isPointDansTriangle()
     for(int px = minX ; px < maxX ; px++){
        for(int py = minY ; py < maxY ; py++){
-           if(isPointDansTriangle(px,py,x1,y1,z1,x2,y2,z2,x3,y3,z3,buffer,texture,xd,yd,xe,ye,xf,yf,color,normeX,normeY,normeZ,xg,yg,zg,xh,yh,zh,xi,yi,zi)){
-             float distance =  sqrt(normeX*normeX + normeY*normeY + normeZ*normeZ);
-             normeX /= distance;
-             normeY /= distance;
-             normeZ /= distance;
+           if(isPointDansTriangle(px,py,x1,y1,z1,x2,y2,z2,x3,y3,z3,buffer,texture,xd,yd,xe,ye,xf,yf,color,normeX,normeY,normeZ,xg,yg,zg,xh,yh,zh,xi,yi,zi,lightX,lightY,lightZ)){
              float intensity = fmax(0,normeX*lightX + normeY*lightY + normeZ*lightZ);
-             //printf("%f\n", intensity);
-             color = TGAColor(color.r*intensity,color.g*intensity,color.b*intensity,color.a*intensity);
+             //printf("%f\n", intensity);1111
+             //color = TGAColor(color.r*intensity,color.g*intensity,color.b*intensity,color.a*intensity);
+             color = TGAColor(fmin(5+color.r*(intensity + .6*spec),255),fmin(5+color.g*(intensity + .6*spec),255),fmin(5+color.b*(intensity + .6*spec),255),0);
              image.set(px,py,color);
             }
         }
@@ -652,6 +680,8 @@ int main(int argc, char** argv) {
 	TGAImage texture(500,500,TGAImage::RGB);
     texture.read_tga_file("african_head_diffuse.tga");
     nm.read_tga_file("african_head_nm.tga");
+    specImg.read_tga_file("african_head_spec.tga");
+    specImg.flip_vertically();
     nm.flip_vertically();
     texture.flip_vertically();
 
