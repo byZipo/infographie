@@ -11,14 +11,16 @@
 
 #define TAILLEIMAGE 500
 #define PI 3.14159265359
-#define angle 0
+#define angle 330
+#define C 10000
 
 using namespace std;
 using std::ifstream;
 
-const TGAColor red   = TGAColor(255, 0,   0,   255);
+TGAImage nm;
 
-const TGAColor green   = TGAColor(0, 255,   0,   255);
+const TGAColor red   = TGAColor(255, 0,   0,   255);
+const TGAColor white   = TGAColor(250, 250,  250,   255);
 
 void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
     bool steep = false;
@@ -470,16 +472,20 @@ txtY = (yd*w + ye*u + yf*v)*1024;
 
 color = texture.get(txtX,txtY);
 //color =  TGAColor(rand()%255, rand()%255, 255, 255);
-
+//color = white;
 //On prend en compte la profondeur pour ne pas tout dessiner
 if(u>=-1e-5 && v>=-1e-5 && w>=-1e-5){ //on utilise un facteur d'approximation car des fois meme si c'est <0 on doit le prendre
     float pz = (w*az) + (u*bz) + (v*cz);
     if(buffer[px][py]>pz)return false;
     else {
         buffer[px][py]=pz;
-        normeX = xg*w + xh*u + xi*v;
-        normeY = yg*w + yh*u + yi*v;
-        normeZ = zg*w + zh*u + zi*v;
+        TGAColor rgb = nm.get(txtX,txtY);
+        normeX = rgb.r;
+        normeY = rgb.g;
+        normeZ = rgb.b;
+       // normeX = xg*w + xh*u + xi*v;
+       // normeY = yg*w + yh*u + yi*v;
+       // normeZ = zg*w + zh*u + zi*v;
     }return true;
 }
 else return false;
@@ -504,9 +510,14 @@ void setRemplissageTriangleBarycentric(float x1, float y1, float z1, float x2, f
     float normeZ = 0.;//x12*y13 - y12*x13;
 
     //définition du vecteur lumière
-    float lightX = 0.;
-    float lightY = 0.;
-    float lightZ = 1.;
+    float lightX = 1;
+    float lightY = 1;
+    float lightZ = 0;
+
+    float normLum = sqrt(lightX*lightX + lightY*lightY + lightZ*lightZ);
+    lightX /= normLum;
+    lightY /= normLum;
+    lightZ /= normLum;
 
     TGAColor color = TGAColor(rand()%255, rand()%255, 255, 255); //initialisation d'une couleur, qui va être modifiée par la méthode isPointDansTriangle()
     for(int px = minX ; px < maxX ; px++){
@@ -516,7 +527,8 @@ void setRemplissageTriangleBarycentric(float x1, float y1, float z1, float x2, f
              normeX /= distance;
              normeY /= distance;
              normeZ /= distance;
-             float intensity = fmax(0.,normeX*lightX + normeY*lightY + normeZ*lightZ);
+             float intensity = fmax(0,normeX*lightX + normeY*lightY + normeZ*lightZ);
+             //printf("%f\n", intensity);
              color = TGAColor(color.r*intensity,color.g*intensity,color.b*intensity,color.a*intensity);
              image.set(px,py,color);
             }
@@ -560,7 +572,7 @@ void setTrianglesSurImage(vector<vector<float> > nuage, vector<vector<float> > t
 
     Matrix perspective(4,4);
     perspective = perspective.identity(4);
-    perspective[3][2] = -1./10000;
+    perspective[3][2] = -1./C;
 
     pivot = pivot*perspective*transformation;
 
@@ -639,6 +651,8 @@ int main(int argc, char** argv) {
 	TGAImage imageTriangles(500, 500, TGAImage::RGB);
 	TGAImage texture(500,500,TGAImage::RGB);
     texture.read_tga_file("african_head_diffuse.tga");
+    nm.read_tga_file("african_head_nm.tga");
+    nm.flip_vertically();
     texture.flip_vertically();
 
 	ifstream fin;
