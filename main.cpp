@@ -8,6 +8,7 @@
 #include <vector>
 #include <cstdlib>
 #include <limits>
+#include <sstream>
 
 #define TAILLEIMAGE 500
 #define PI 3.14159265359
@@ -35,54 +36,25 @@ vector<vector<float> > parsePoints(ifstream &fin, TGAImage &image){
 
     vector<vector<float> >nuage;
     vector<float> points;
-
-    std::string ligne;
-
-    string entier1,entier2,entier3;
-    float x,y,z;
+    string ligne;
 
     /* lecture de tout le fichier */
     while(getline(fin,ligne,'\n')){
-        entier1="";
-        entier2="";
-        entier3="";
 
-    /* pour chaque ligne qui commence par un 'v  ' */
-    if(ligne[0]=='v'&& ligne[1]==' ' && ligne[2]== ' '){
+        /* pour chaque ligne qui commence par un 'v  ' */
+        if(ligne[0]=='v'&& ligne[1]==' ' && ligne[2]== ' '){
 
-    int i = 3;
-
-    /* récuperation des 3 string x,y,z du fichier */
-    while(ligne[i]!= ' '){
-        entier1 += ligne[i];
-        i++;
-    }
-    i++;
-
-    while(ligne[i]!= ' '){
-        entier2 += ligne[i];
-        i++;
-    }
-    i++;
-
-    while(ligne[i]!= ' '){
-        entier3 += ligne[i];
-        if(!((int)ligne.size()-1==i)){
-            i++;
-        }else break;
-    }
-      /* conversion de ces strings en float */
-    x = atof(entier1.c_str());
-    y = atof(entier2.c_str());
-    z = atof(entier3.c_str());
-
-    points.push_back(x);
-    points.push_back(y);
-    points.push_back(z);
-    nuage.push_back(points);
-    points.clear();
-
-    }
+            ligne = ligne.substr(3,ligne.size());
+            stringstream ss(ligne);
+            ss.str(ligne);
+            double a, b, c;
+            ss >> a >> b >> c;
+            points.push_back(a);
+            points.push_back(b);
+            points.push_back(c);
+            nuage.push_back(points);
+            points.clear();
+        }
   }
   return nuage;
 }
