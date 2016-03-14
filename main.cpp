@@ -63,61 +63,26 @@ vector<vector<float> > parsePoints(ifstream &fin, TGAImage &image){
 
 vector<vector<float> > parseTextures(ifstream &fin, TGAImage &image){
 
-    vector<vector<float> >nuage;
+vector<vector<float> >nuage;
     vector<float> points;
-
-    std::string ligne;
-
-    string entier1,entier2,entier3;
-    float x,y,z;
+    string ligne;
 
     /* lecture de tout le fichier */
     while(getline(fin,ligne,'\n')){
-        entier1="";
-        entier2="";
-        entier3="";
 
-    /* pour chaque ligne qui commence par un 'vt ' */
-    if(ligne[0]=='v'&& ligne[1]=='t' && ligne[2]== ' '){
-
-    int i = 4;
-
-    /* récuperation des 3 string x,y,z du fichier */
-    while(ligne[i]!= ' '){
-        entier1 += ligne[i];
-        i++;
-    }
-    i++;
-
-    while(ligne[i]!= ' '){
-        entier2 += ligne[i];
-        i++;
-    }
-    i++;
-
-   while(ligne[i]!= ' '){
-        entier3 += ligne[i];
-        if(!((int)ligne.size()-1==i)){
-            i++;
-        }else break;
-    }
-      /* conversion de ces strings en float */
-    x = atof(entier1.c_str());
-    y = atof(entier2.c_str());
-    z = atof(entier3.c_str());
-
-    /*printf(" X= %f ",x);
-    printf("| Y= %f",y);
-    printf("| Z= %f",z);
-    printf("\n");*/
-
-    points.push_back(x);
-    points.push_back(y);
-    points.push_back(z);
-    nuage.push_back(points);
-    points.clear();
-
-    }
+        /* pour chaque ligne qui commence par un 'v  ' */
+        if(ligne[0]=='v'&& ligne[1]=='t' && ligne[2]== ' '){
+            ligne = ligne.substr(4,ligne.size());
+            stringstream ss(ligne);
+            ss.str(ligne);
+            double a, b, c;
+            ss >> a >> b >> c;
+            points.push_back(a);
+            points.push_back(b);
+            points.push_back(c);
+            nuage.push_back(points);
+            points.clear();
+        }
   }
   return nuage;
 }
@@ -126,12 +91,9 @@ vector<vector<float> > parseTextures(ifstream &fin, TGAImage &image){
 
 vector<vector<float> > parseTriangles(ifstream &fin, TGAImage &image){
 
-
     vector<vector<float> >nuage;
     vector<float> points;
-
     std::string ligne;
-
     string entier1,entier2,entier3;
     float x,y,z;
 
@@ -166,12 +128,6 @@ vector<vector<float> > parseTriangles(ifstream &fin, TGAImage &image){
             x = atof(entier1.c_str());
             y = atof(entier2.c_str());
             z = atof(entier3.c_str());
-
-
-            //printf("--> %f ",x);
-           // printf("%f ",y);
-           // printf("%f ",z);
-           // printf("\n");
 
             points.push_back(x);
             points.push_back(y);
