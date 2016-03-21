@@ -18,12 +18,18 @@
 #define LIGHTY 1
 #define LIGHTZ 0
 
+#define LIGHTX2 0
+#define LIGHTY2 1
+#define LIGHTZ2 1
+
 using namespace std;
 using std::ifstream;
 
 TGAImage nm;
 TGAImage specImg;
+const TGAColor white   = TGAColor(250, 250,  250,   255);
 float spec = 0.;
+float spec2 = 0.;
 
 void normalise(float &a, float &b, float &c){
     float distance = sqrt(a*a + b*b + c*c);
@@ -247,7 +253,7 @@ txtX = (xd*w + xe*u + xf*v)*texture.get_width();
 txtY = (yd*w + ye*u + yf*v)*texture.get_height();
 
 color = texture.get(txtX,txtY);
-
+color = white;
 //On prend en compte la profondeur pour ne pas tout dessiner
 if(u>=-1e-5 && v>=-1e-5 && w>=-1e-5){ //on utilise un facteur d'approximation car des fois meme si c'est <0 on doit le prendre
     float pz = (w*az) + (u*bz) + (v*cz);
@@ -256,6 +262,11 @@ if(u>=-1e-5 && v>=-1e-5 && w>=-1e-5){ //on utilise un facteur d'approximation ca
         float lightX = LIGHTX;
         float lightY = LIGHTY;
         float lightZ = LIGHTZ;
+
+        float lightX2 = LIGHTX2;
+        float lightY2 = LIGHTY2;
+        float lightZ2 = LIGHTZ2;
+
         buffer[px][py]=pz;
         TGAColor rgb = nm.get(txtX,txtY);
         normeX = rgb.r;
@@ -264,8 +275,10 @@ if(u>=-1e-5 && v>=-1e-5 && w>=-1e-5){ //on utilise un facteur d'approximation ca
 
         normalise(normeX,normeY,normeZ);
         float rZ = reflection(normeX, normeY, normeZ, lightX, lightY, lightZ);
+        float rZ2 = reflection(normeX,normeY,normeZ,lightX2,lightY2,lightZ2);
         TGAColor col = specImg.get(txtX,txtY);
         spec = pow(fmax(0,rZ), col.b);
+        spec2 = pow(fmax(0,rZ2), col.b);
     }return true;
 }
 else return false;
@@ -291,6 +304,13 @@ void setRemplissageTriangleBarycentric(float x1, float y1, float z1, float x2, f
     float lightY = LIGHTY;
     float lightZ = LIGHTZ;
 
+
+    //bonus : deuxieme vecteur lumière
+    float lightX2 = LIGHTX2;
+    float lightY2 = LIGHTY2;
+    float lightZ2 = LIGHTZ2;
+
+    normalise(lightX2,lightY2,lightZ2);
     normalise(lightX,lightY,lightZ);
 
     TGAColor color = TGAColor(rand()%255, rand()%255, 255, 255); //initialisation d'une couleur, qui va être modifiée par la méthode isPointDansTriangle()
@@ -298,7 +318,8 @@ void setRemplissageTriangleBarycentric(float x1, float y1, float z1, float x2, f
        for(int py = minY ; py < maxY ; py++){
            if(isPointDansTriangle(px,py,x1,y1,z1,x2,y2,z2,x3,y3,z3,buffer,texture,xd,yd,xe,ye,xf,yf,color,normeX,normeY,normeZ)){
              float intensity = fmax(0,normeX*lightX + normeY*lightY + normeZ*lightZ);
-             color = TGAColor(fmin(5+color.r*(intensity + .6*spec),255),fmin(5+color.g*(intensity + .6*spec),255),fmin(5+color.b*(intensity + .6*spec),255),0);
+             float intensity2 = fmax(0,normeX*lightX2 + normeY*lightY2 + normeZ*lightZ2);
+             color = TGAColor(fmin(5+color.r*(intensity2 + .6*spec2),255),fmin(5+color.g*(intensity + .6*spec),255),fmin(5+color.b*(intensity + .6*spec),255),0);
              image.set(px,py,color);
             }
         }
